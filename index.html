@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Daily Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { font-family: Arial, sans-serif; }
+</style>
+</head>
+<body class="bg-slate-50">
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+
+const { useEffect, useMemo, useState } = React;
+
+const STORAGE_KEY = "family-daily-tracker-v3";
+
+function makeId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+const CATEGORY_TYPES = {
+  Kids: ["Feeding", "School", "Bath", "Sleep", "Medicine", "Play", "Appointment"],
+  Home: ["Cleaning", "Laundry", "Cooking", "Dishes", "Bins", "Maintenance"],
+  Shopping: ["Groceries", "Baby items", "Household items", "Medicine", "School items", "Other shopping"],
+  Appointments: ["Doctor", "Dentist", "School meeting", "Family visit", "Government/office", "Other appointment"],
+  Other: ["Reminder", "Family task", "Personal task", "Other"]
+};
+
+const categoryIcons = {
+  Kids: "👶",
+  Home: "🏠",
+  Shopping: "🛒",
+  Appointments: "📅",
+  Other: "📌"
+};
+
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function getDefaultItems() {
+  const today = getToday();
+  return [
+    {
+      id: "1",
+      title: "Prepare breakfast",
+      category: "Kids",
+      type: "Feeding",
+      date: today,
+      time: "07:30",
+      done: false,
+      notes: "Milk, cereal or fruit"
+    }
+  ];
+}
+
+function App() {
+  const [items, setItems] = useState(getDefaultItems);
+  const [filter, setFilter] = useState("All");
+  const [viewMode, setViewMode] = useState("Day");
+  const [selectedDate, setSelectedDate] = useState(getToday);
+
+  const [form, setForm] = useState({
+    title: "",
+    category: "Kids",
+    type: "Feeding",
+    date: getToday(),
+    time: "",
+    notes: ""
+  });
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) setItems(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [items]);
+
+  function changeCategory(category) {
+    setForm(prev => ({
+      ...prev,
+      category,
+      type: CATEGORY_TYPES[category][0]
+    }));
+  }
+
+  const visibleItems = useMemo(() => {
+    return items.filter(item => filter === "All" || item.category === filter);
+  }, [items, filter]);
+
+  function addItem(e) {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+
+    setItems(prev => [
+      ...prev,
+      {
+        ...form,
+        id: makeId(),
+        done: false
+      }
+    ]);
+
+    setForm({
+      title: "",
+      category: form.category,
+      type: CATEGORY_TYPES[form.category][0],
+      date: selectedDate,
+      time: "",
+      notes: ""
+    });
+  }
+
+  function toggleDone(id) {
+    setItems(prev => prev.map(item => item.id === id ? {...item, done: !item.done} : item));
+  }
+
+  function deleteItem(id) {
+    setItems(prev => prev.filter(item => item.id !== id));
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto p-4 md:p-8">
+      <h1 className="text-4xl font-bold mb-2">Family Daily Tracker</h1>
+      <p className="text-slate-600 mb-6">Daily, weekly and monthly family planning app.</p>
+
+      <div className="grid lg:grid-cols-[380px_1fr] gap-6">
+        <div className="bg-white rounded-2xl shadow-md p-5">
+          <h2 className="text-xl font-semibold mb-4">Add New Item</h2>
+
+          <form onSubmit={addItem} className="space-y-4">
+
+            <input
+              value={form.title}
+              onChange={e => setForm({...form, title: e.target.value})}
+              placeholder="Task or routine"
+              className="w-full border rounded-xl px-3 py-2"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+
+              <select
+                value={form.category}
+                onChange={e => changeCategory(e.target.value)}
+                className="border rounded-xl px-3 py-2"
+              >
+                {Object.keys(CATEGORY_TYPES).map(category => (
+                  <option key={category}>{category}</option>
+                ))}
+              </select>
+
+              <select
+                value={form.type}
+                onChange={e => setForm({...form, type: e.target.value})}
+                className="border rounded-xl px-3 py-2"
+              >
+                {CATEGORY_TYPES[form.category].map(type => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="date"
+                value={form.date}
+                onChange={e => setForm({...form, date: e.target.value})}
+                className="border rounded-xl px-3 py-2"
+              />
+
+              <input
+                type="time"
+                value={form.time}
+                onChange={e => setForm({...form, time: e.target.value})}
+                className="border rounded-xl px-3 py-2"
+              />
+            </div>
+
+            <textarea
+              value={form.notes}
+              onChange={e => setForm({...form, notes: e.target.value})}
+              placeholder="Notes"
+              className="w-full border rounded-xl px-3 py-2"
+            />
+
+            <button className="w-full bg-slate-900 text-white rounded-xl py-3">
+              Add Item
+            </button>
+          </form>
+        </div>
+
+        <div>
+          <div className="bg-white rounded-2xl shadow-md p-4 mb-4">
+            <div className="flex flex-wrap gap-2 mb-3">
+              {["All", ...Object.keys(CATEGORY_TYPES)].map(name => (
+                <button
+                  key={name}
+                  onClick={() => setFilter(name)}
+                  className={`px-4 py-2 rounded-full text-sm ${
+                    filter === name ? "bg-slate-900 text-white" : "bg-slate-100"
+                  }`}
+                >
+                  {name === "All" ? "All" : `${categoryIcons[name]} ${name}`}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              {["Day", "Week", "Month"].map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`px-4 py-2 rounded-full text-sm ${
+                    viewMode === mode ? "bg-amber-500 text-white" : "bg-slate-100"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                className="border rounded-xl px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {visibleItems.map(item => (
+              <div key={item.id} className={`bg-white rounded-2xl shadow-md p-4 ${item.done ? "opacity-60" : ""}`}>
+                <div className="flex justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">{item.title}</h3>
+                    <div className="text-sm text-slate-500 mt-2 flex flex-wrap gap-3">
+                      <span>📅 {item.date}</span>
+                      <span>🕒 {item.time || "No time"}</span>
+                      <span>{item.type}</span>
+                      <span>{categoryIcons[item.category]} {item.category}</span>
+                    </div>
+
+                    {item.notes && (
+                      <div className="mt-3 bg-slate-50 rounded-xl p-3 text-sm">
+                        {item.notes}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => toggleDone(item.id)}
+                      className="bg-slate-900 text-white rounded-xl px-3 py-2 text-sm"
+                    >
+                      {item.done ? "Undo" : "Done"}
+                    </button>
+
+                    <button
+                      onClick={() => deleteItem(item.id)}
+                      className="bg-red-50 text-red-600 rounded-xl px-3 py-2 text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
